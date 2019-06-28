@@ -1,0 +1,206 @@
+#!/usr/bin/env python3
+import os, time, pathlib, curses   
+
+
+notes_dir = os.path.expanduser("~") + "/.notes/"
+pathlib.Path(notes_dir).mkdir(parents=True, exist_ok=True)
+
+window_height, window_width = os.popen('stty size', 'r').read().split()
+window_height = int(window_height)
+window_width = int(window_width)
+
+mode_names = ["edit", "delete", "echo", "copy"]
+
+prompt = ">> "
+enter = '\n'
+tab = '\t'
+bar = "_" * window_width
+
+
+
+    
+def draw_window(win, current_mode, query, tab_string, selected, possible_notes):
+    
+    def draw_mode(win, current_mode):
+        win.addstr(0,0,bar+'\n')
+
+        for i, mode in enumerate(mode_names):
+            if i == current_mode: win.addstr(mode.center(window_width // len(mode_names)), curses.A_STANDOUT)
+            else: win.addstr(mode.center(window_width // len(mode_names)))
+
+    def draw_prompt(win, query, tab_string):
+        win.addstr(3,0,bar)
+        win.addstr(5,0,(prompt+query).ljust(window_width))
+        win.addstr(5, len(prompt + query), tab_string[len(query):], curses.A_STANDOUT)
+        win.addstr(6,0,bar)
+
+    def draw_body(win, query,selected, contents):
+        # body starts on line 8
+        if len(contents) == 0 and query != '':
+            win.addstr(8,len(prompt), "Create New Note: " + query+"\n"*(window_height-10), curses.A_STANDOUT)
+            return
+
+        body_length = window_height - 9
+        if body_length % 2 == 0: body_length -= 1
+        half_length = body_length // 2
+
+        # # size of contents is <= to body length
+        if len(contents) <= body_length:
+            start = 0
+            end = len(contents)
+        # # squashed in beginning
+        elif selected < half_length + 1: 
+            start = 0
+            end = body_length
+        # # squashed in end
+        elif selected >= len(contents) - half_length: 
+            start = len(contents) - body_length
+            end = len(contents)
+        # if selected + half_length + 1 >= len(contents):
+        else:
+            start = selected - half_length
+            end = selected + half_length + 1
+        current_line = 8
+        for i in range(start, end):
+            if i == selected:
+                win.addstr(current_line,0,prompt.ljust(window_width))
+                win.addstr(current_line, len(prompt), contents[i], curses.A_STANDOUT)
+            else:
+                win.addstr(current_line, 0, (" "*len(prompt)+contents[i]).ljust(window_width))
+            current_line += 1
+
+        win.addstr(current_line,0,"\n"*(window_height-current_line-1))
+
+    
+    
+    #win.clear()
+    draw_mode(win, current_mode)
+    draw_prompt(win, query, tab_string)
+    draw_body(win, query, selected, possible_notes) 
+    win.refresh()
+
+def get_tab_string(list_in):
+
+    def common_start(sa, sb):
+        def _iter():
+            for a, b in zip(sa, sb):
+                if a == b:
+                    yield a
+                else:
+                    return
+        return ''.join(_iter())
+    
+    if len(list_in) == 0: return ""
+    
+    tab_string = list_in[0]
+    for item in list_in[1:]:
+        tab_string = common_start(tab_string, item)
+
+    return tab_string
+    
+def main(win, current_mode, query):
+    
+    curses.use_default_colors()
+    curses.curs_set(False)
+    win.keypad(True)
+
+    all_notes = sorted(os.listdir(notes_dir))
+    possible_notes = []
+    not_possible_notes = []
+    for note in all_notes:
+        if note.startswith(query):
+            possible_notes.append(note)
+        else:
+            not_possible_notes.append(note)
+    
+    selected = 0
+    tab_string = get_tab_string(possible_notes)
+   
+    while True:
+        
+        draw_window(win, current_mode, query, tab_string, selected, possible_notes)
+        forwards = True
+
+        ch = win.getkey()
+        if ch == 'KEY_RIGHT': 
+            current_mode = (current_mode + 1) % len(mode_names)
+            continue
+        elif ch == 'KEY_LEFT': 
+            current_mode = (current_mode - 1) % len(mode_names)
+            continue
+        elif ch == 'KEY_UP': 
+            if selected > 0: selected -= 1
+            continue
+        elif ch == 'KEY_DOWN': 
+            if selected < len(possible_notes) - 1: selected += 1
+            continue
+        elif ch == 'KEY_BACKSPACE': 
+            query = query[:-1]
+            forwards = False
+        elif ch == tab: 
+            if query != tab_string:
+                query = tab_string
+                #FIXME continue?
+            else:
+                # blink the query line
+                # FIXME
+                continue
+        elif ch == enter: 
+            if selected in range(len(possible_notes)): 
+                note_selection = possible_notes[selected]
+            else: 
+                note_selection = query
+            raise StopIteration(current_mode, note_selection)
+        elif ch == " ": query+="_"
+        elif ch == 'KEY_DC':
+            query = ""
+            forwards = False
+        else: query += ch
+
+
+        if forwards:
+            possible_notes_helper = []
+            for note in possible_notes:
+                if note.startswith(query): possible_notes_helper.append(note)
+                else: not_possible_notes.append(note)
+            if len(possible_notes) != len(possible_notes_helper): 
+                selected = 0
+            possible_notes = possible_notes_helper
+                    
+        else:
+            not_possible_notes_helper = []
+            for note in not_possible_notes:
+                if not note.startswith(query): not_possible_notes_helper.append(note)
+                else: possible_notes.append(note)
+
+            if len(not_possible_notes) != len(not_possible_notes_helper):
+                selected = 0
+            not_possible_notes = not_possible_notes_helper
+            possible_notes = sorted(possible_notes)
+
+        if len(possible_notes) == 0:
+            tab_string = query
+        else:
+            tab_string = get_tab_string(possible_notes)
+
+
+def start_app(current_mode=0, query=""):
+    try: curses.wrapper(main, current_mode, query)
+    except KeyboardInterrupt: pass
+    except StopIteration as e: 
+        end_mode = e.args[0]
+        note_selection = e.args[1]
+        note_path = notes_dir + note_selection
+        if mode_names[end_mode] == "edit":
+            os.system("vim " + note_path)
+            start_app(end_mode, note_selection)
+        elif mode_names[end_mode] == "delete":
+            os.system("rm " + note_path)
+            start_app(end_mode)
+        elif mode_names[end_mode] == "echo":
+            os.system("cat " + note_path)
+        elif mode_names[end_mode] == "copy":
+            os.system("cat " + note_path + " | xclip -selection clipboard")
+    except: raise
+
+start_app()
