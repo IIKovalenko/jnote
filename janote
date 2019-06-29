@@ -240,7 +240,7 @@ def start_app(current_mode=0, query=""):
             '((cd %s) && ' 
             '([ -d .git ] || git init) && ' 
             '(git add .) && (git commit -m "jnote") && '
-            '(git push)) & > /dev/null 2>&1'
+            '(git push)) & '#> /dev/null 2>&1'
         ) % notes_dir)
         os.system('cd ')
 
