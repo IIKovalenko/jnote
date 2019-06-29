@@ -236,12 +236,12 @@ def start_app(current_mode=0, query=""):
     except: raise
     
     finally: 
-        os.system((
-            '((cd %s) && ' 
-            '([ -d .git ] || git init) && ' 
-            '(git add .) && (git commit -m "jnote") && '
-            '(git push))  '#> /dev/null 2>&1'
-        ) % notes_dir)
-        os.system('cd ')
+        # os.system((
+        #     '((cd %s) && ' 
+        #     '([ -d .git ] || git init) && ' 
+        #     '(git add .) && (git commit -m "jnote") && '
+        #     '(git push))  '#> /dev/null 2>&1'
+        # ) % notes_dir)
+        # os.system('cd ')
 
 start_app()
