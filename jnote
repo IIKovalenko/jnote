@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, sys, time, pathlib, curses   
+import os, subprocess, sys, shutil, time, pathlib, curses   
 
 notes_dir = os.path.expanduser("~") + "/.notes/"
 pathlib.Path(notes_dir).mkdir(parents=True, exist_ok=True)
@@ -7,6 +7,8 @@ window_height, window_width = os.popen('stty size', 'r').read().split()
 window_height = int(window_height)
 window_width = int(window_width)
 mode_names = ["edit", "delete", "echo", "copy", "help"]
+if shutil.which('xclip') is None: mode_names.pop(3)
+editor = os.getenv('EDITOR', "vim")
     
 def draw_window(win, current_mode, query, tab_string, selected, possible_notes):
     
@@ -19,12 +21,11 @@ def draw_window(win, current_mode, query, tab_string, selected, possible_notes):
     def draw_help(win):
 
         help_message = [
-            
-            "  ↑ ↓  | change selection    ", 
             "  ← →  | change mode         ",
+            "  ↑ ↓  | change selection    ", 
             " [TAB] | auto-complete prompt",
-            " [RET] | make selection      ",
             " [DEL] | clear prompt        ",
+            " [RET] | make selection      ",
             " ctrlC | quit                "
         ]
         for i, line in enumerate(help_message):
@@ -91,6 +92,112 @@ def draw_window(win, current_mode, query, tab_string, selected, possible_notes):
         draw_body(win, current_mode, query, selected, possible_notes) 
         win.refresh()    
 
+def confirm_delete(win, note_selection):
+
+    def draw_confirm_window(): 
+
+        confirm_message = [
+            " " * (window_width//2),
+            " " * (window_width//2),
+            " " * (window_width//2),
+            ('delete note: "%s"' % note_selection).center(window_width//2),
+            " " * (window_width//2),
+            " " * (window_width//2),
+            " " * (window_width//2),
+            " " * (window_width//2),
+            " " * (window_width//2),
+        ]
+
+        start_line = window_height//2 - len(confirm_message)//2
+
+        for i, line in enumerate(confirm_message):
+            win.addstr(start_line+i, window_width//2 - len(confirm_message[i])//2, confirm_message[i], curses.A_STANDOUT)
+
+        if confirm:
+            win.addstr(start_line + 6, window_width//2 - window_width//8, "  yes  ")
+            win.addstr(" "*(window_width//4-13) + "  no  ", curses.A_STANDOUT)
+        else:
+            win.addstr(start_line + 6, window_width//2 - window_width//8, "  yes  "+" "*(window_width//4-13), curses.A_STANDOUT)
+            win.addstr("  no  ")
+
+    confirm = False
+
+    while True:
+
+        draw_confirm_window()
+        ch = win.getkey()
+
+        if ch == "KEY_LEFT" or ch == "KEY_RIGHT":
+            confirm = not confirm
+            continue
+
+        elif ch == "\n":
+            return confirm
+
+def echo_notification(win, note_selection):
+
+    echo_message = [
+        " " * (window_width//2),
+        " " * (window_width//2),        
+        "printed note to console:".center(window_width//2),
+        " " * (window_width//2),
+        ('"%s"' % note_selection).center(window_width//2),
+        " " * (window_width//2),
+        "(press any key to continue)".center(window_width//2),
+        " " * (window_width//2),
+        " " * (window_width//2)
+    ]
+
+    start_line = window_height//2 - len(echo_message)//2
+
+    for i, line in enumerate(echo_message):
+        win.addstr(start_line+i, window_width//2 - len(echo_message[i])//2, echo_message[i], curses.A_STANDOUT)
+
+    win.getkey()
+
+def copy_notification(win, note_selection):
+
+    copy_message = [
+        " " * (window_width//2),
+        " " * (window_width//2),        
+        "copied note to clipboard:".center(window_width//2),
+        " " * (window_width//2),
+        ('"%s"' % note_selection).center(window_width//2),
+        " " * (window_width//2),
+        "(press any key to continue)".center(window_width//2),
+        " " * (window_width//2),
+        " " * (window_width//2)
+    ]
+
+    start_line = window_height//2 - len(copy_message)//2
+
+    for i, line in enumerate(copy_message):
+        win.addstr(start_line+i, window_width//2 - len(copy_message[i])//2, copy_message[i], curses.A_STANDOUT)
+
+    win.getkey()
+
+
+def filter_notes(list_in, query):
+    all_notes = sorted(list_in)
+
+    begin_index = 0
+    for note in all_notes:
+        if note.startswith('.'): 
+            begin_index += 1
+        else: break
+    
+    all_notes = all_notes[begin_index:]
+
+    possible_notes = []
+    not_possible_notes = []
+    for note in all_notes:
+        if note.startswith(query):
+            possible_notes.append(note)
+        else:
+            not_possible_notes.append(note)
+
+    return possible_notes, not_possible_notes
+
 def get_tab_string(list_in):
 
     def common_start(sa, sb):
@@ -111,34 +218,14 @@ def get_tab_string(list_in):
 
     return tab_string
     
-def main(win, current_mode, query):
+def main(win, current_mode, query, selected):
     
     curses.use_default_colors()
     curses.curs_set(False)
     win.keypad(True)
 
-    is_git_repo = False
-
-    all_notes = sorted(os.listdir(notes_dir))
-    begin_index = 0
-    for note in all_notes:
-        if note.startswith('.'): 
-            if note == ".git":
-                is_git_repo = True
-            begin_index += 1
-        else: break
-    
-    all_notes = all_notes[begin_index:]
-
-    possible_notes = []
-    not_possible_notes = []
-    for note in all_notes:
-        if note.startswith(query):
-            possible_notes.append(note)
-        else:
-            not_possible_notes.append(note)
-    
-    selected = 0
+    notes_dir_contents = os.listdir(notes_dir)
+    possible_notes, not_possible_notes = filter_notes(notes_dir_contents, query)
     tab_string = get_tab_string(possible_notes)
    
     while True:
@@ -150,35 +237,58 @@ def main(win, current_mode, query):
         if ch == 'KEY_RIGHT': 
             current_mode = (current_mode + 1) % len(mode_names)
             continue
+
         elif ch == 'KEY_LEFT': 
             current_mode = (current_mode - 1) % len(mode_names)
             continue
+
         elif mode_names[current_mode] == "help":
             continue 
+
         elif ch == 'KEY_UP': 
             if selected > 0: selected -= 1
             continue
+
         elif ch == 'KEY_DOWN': 
             if selected < len(possible_notes) - 1: selected += 1
             continue
+
         elif ch == 'KEY_BACKSPACE': 
             query = query[:-1]
             forwards = False
+
         elif ch == 'KEY_DC':
             query = ""
             forwards = False
+
         elif ch == '\t': 
             query = tab_string
             continue
+
         elif ch == '\n': 
-            if selected in range(len(possible_notes)): 
-                note_selection = possible_notes[selected]
-            else: 
-                note_selection = query
-            raise StopIteration(current_mode, note_selection, query)
+
+            if len(possible_notes) == 0: 
+
+                if mode_names[current_mode] != "edit": continue
+                else: note_selection = query
+
+            else: note_selection = possible_notes[selected]
+            
+            if mode_names[current_mode] == "delete": 
+                if not confirm_delete(win, note_selection): continue
+
+            elif mode_names[current_mode] == "echo":
+                echo_notification(win, note_selection)
+
+            elif mode_names[current_mode] == "copy":
+                copy_notification(win, note_selection)
+
+            raise StopIteration(current_mode, note_selection, query, selected)
+
         else: query += ch.replace(" ", "_")
 
         if forwards:
+
             possible_notes_helper = []
             for note in possible_notes:
                 if note.startswith(query): possible_notes_helper.append(note)
@@ -188,6 +298,7 @@ def main(win, current_mode, query):
             possible_notes = possible_notes_helper
                     
         else:
+
             not_possible_notes_helper = []
             for note in not_possible_notes:
                 if not note.startswith(query): not_possible_notes_helper.append(note)
@@ -198,50 +309,51 @@ def main(win, current_mode, query):
             not_possible_notes = not_possible_notes_helper
             possible_notes = sorted(possible_notes)
 
-        if len(possible_notes) == 0:
-            tab_string = query
-        else:
-            tab_string = get_tab_string(possible_notes)
+        if len(possible_notes) == 0: tab_string = query
+            
+        else: tab_string = get_tab_string(possible_notes)
 
 
-def start_app(current_mode=0, query=""):
+def start_app(current_mode=0, query="", selected=0):
 
-    try: curses.wrapper(main, current_mode, query)
+    try: curses.wrapper(main, current_mode, query, selected)
 
     except KeyboardInterrupt: pass
 
     except StopIteration as e: 
-
+ 
         end_mode = e.args[0]
         note_selection = e.args[1]
         end_query = e.args[2] 
+        end_selected = e.args[3]
         note_path = notes_dir + note_selection
 
         if mode_names[end_mode] == "edit":
-            os.system("vim " + note_path)
-            start_app(end_mode, query)
-            sys.exit()
+            os.system(editor+ " " + note_path)
+            start_app(current_mode = end_mode, query = end_query)
 
         elif mode_names[end_mode] == "delete":
             os.system("rm " + note_path + " 2>/dev/null")
-            start_app(end_mode)
-            sys.exit()
+            start_app(current_mode = end_mode)
 
         elif mode_names[end_mode] == "echo":
             os.system("cat " + note_path + " 2>/dev/null")
+            start_app(current_mode = end_mode, query = end_query, selected = end_selected)
 
         elif mode_names[end_mode] == "copy":
-            os.system("cat " + note_path + " 2>/dev/null | xclip -selection clipboard")
+            start_app(current_mode = end_mode, query = end_query, selected = end_selected)
+            os.system("xclip -selection clipboard " + note_path)
+        
+        sys.exit()
 
     except: raise
     
     finally: 
         os.system((
-            '((cd %s) && ' 
-            '([ -d .git ] || git init) && ' 
-            '(git add .) && (git commit -m "jnote") && '
-            '(git push))'# > /dev/null 2>&1'
+            '(cd %s && '
+            '([ -d .git ] || git init) && '
+            'git add . && git commit -m "test" && git push'
+            ') > /dev/null 2>&1 &' 
         ) % notes_dir)
-        os.system('cd ')
-
+        #subprocess.run(['git', 'status', '-s'], stdout=subprocess.PIPE).stdout.decode('utf-8')
 start_app()
