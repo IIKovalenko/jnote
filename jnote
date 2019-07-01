@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 import os, subprocess, sys, shutil, time, pathlib, curses   
 
-notes_dir = os.path.expanduser("~") + "/.notes/"
-pathlib.Path(notes_dir).mkdir(parents=True, exist_ok=True)
-window_height, window_width = os.popen('stty size', 'r').read().split()
-window_height = int(window_height)
-window_width = int(window_width)
-mode_names = ["edit", "delete", "echo", "copy", "help"]
-if shutil.which('xclip') is None: mode_names.pop(3)
-editor = os.getenv('EDITOR', "vim")
-    
+def set_copy_command():
+
+    if shutil.which('xclip') is not None: return "xclip -selection clipboard %s"
+    if shutil.which('pbcopy') is not None: return "pbcopy < %s"
+    return None
+
 def draw_window(win, current_mode, query, tab_string, selected, possible_notes):
     
     prompt = ">> "
@@ -176,7 +173,6 @@ def copy_notification(win, note_selection):
 
     win.getkey()
 
-
 def filter_notes(list_in, query):
     all_notes = sorted(list_in)
 
@@ -313,7 +309,6 @@ def main(win, current_mode, query, selected):
             
         else: tab_string = get_tab_string(possible_notes)
 
-
 def start_app(current_mode=0, query="", selected=0):
 
     try: curses.wrapper(main, current_mode, query, selected)
@@ -342,7 +337,7 @@ def start_app(current_mode=0, query="", selected=0):
 
         elif mode_names[end_mode] == "copy":
             start_app(current_mode = end_mode, query = end_query, selected = end_selected)
-            os.system("xclip -selection clipboard " + note_path)
+            os.system(copy_command % note_path)
         
         sys.exit()
 
@@ -352,8 +347,44 @@ def start_app(current_mode=0, query="", selected=0):
         os.system((
             '(cd %s && '
             '([ -d .git ] || git init) && '
-            'git add . && git commit -m "test" && git push'
+            'git add . && git commit -m "test" && git push origin master'
             ') > /dev/null 2>&1 &' 
-        ) % notes_dir)
-        #subprocess.run(['git', 'status', '-s'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+        ) % notes_dir) #subprocess.run(['git', 'status', '-s'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+
+notes_dir = os.path.expanduser("~") + "/.notes/"
+pathlib.Path(notes_dir).mkdir(parents=True, exist_ok=True)
+
+args = sys.argv[1:]
+if len(args) > 1 and args[0] == "--set-remote":
+
+    os.system(( # remove origin 'git remote add origin %s'
+        '(cd %s && '
+        '([ -d .git ] || git init) && '
+        'git remote rm origin'
+        ') > /dev/null 2>&1 &' 
+    ) % notes_dir)
+
+    os.system(( 
+        '(cd %s && '
+        'git remote add origin %s'
+        ') > /dev/null 2>&1 &' 
+    ) % (notes_dir, args[1]))
+
+    print("set remote: %s" % args[1])
+    sys.exit()
+
+elif len(args) > 0 and args[0] == "--show-remote":
+    remote_info = subprocess.run('cd %s && git config --get remote.origin.url' % notes_dir, shell=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+    if remote_info == "": remote_info = "none"
+    print("remote: " + remote_info)
+    sys.exit()
+
+window_height, window_width = os.popen('stty size', 'r').read().split()
+window_height = int(window_height)
+window_width = int(window_width)
+editor = os.getenv('EDITOR', "vi")
+mode_names = ["edit", "delete", "echo", "copy", "help"]
+copy_command = set_copy_command()
+if copy_command is None: mode_names.pop(3)
+    
 start_app()
