@@ -159,7 +159,7 @@ def draw_window(win, current_mode, query, tab_string, selected, possible_notes):
 
         if len(contents) == 0 and current_mode == 0 and query != '':
             win.addstr(body_start_line,0,prompt)
-            win.addstr(body_start_line,len(prompt), 'create note: "%s"' % query +"\n"*(window_height-9), curses.A_STANDOUT)
+            win.addstr(body_start_line,len(prompt), query +"\n"*(window_height-9), curses.A_STANDOUT)
             return
 
         body_length = window_height - (body_start_line + 1)
