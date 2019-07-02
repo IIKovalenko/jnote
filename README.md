@@ -66,7 +66,7 @@ Modes:
 
 - git with ssh, ssh-add already done
 
-#### Versioning Notes
+### Versioning Notes
 
 Notes are automatically versioned using Git. To store them in a remote repository
 use the command:
@@ -76,7 +76,7 @@ use the command:
 This command will "initialize" the remote repository by forcefully pushing your
 local notes.
 
-#### Synchronizing Notes
+### Synchronizing Notes
 
 Once you have "initialized" a remote repository, it may be used to synchronize your
 notes across multiple devices. On another device, install JNote and use the command:
@@ -86,7 +86,7 @@ notes across multiple devices. On another device, install JNote and use the comm
 This command will overwrite your local notes with the contents of the remote repository.
 Thereafter, any changes made on one of your devices will appear across all of them.
 
-#### Enabling Copy Mode
+### Enabling Copy Mode
 
 An additional dependency is require to enable "copy" mode. Once either xclip or pbcopy 
 is installed, "copy" mode will automatically be enabled.
