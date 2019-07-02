@@ -11,15 +11,14 @@ versioning and synchronization via git.
 
 ## Installation
 
-## Selecting a Note
-
 ## Changing Modes
 
-Modes are shown at the top of the JNote window. 
+Modes are shown at the top section of the JNote window. They control what happens 
+to a note when it is selected.
 
 Controls:
 
-- [← →] - change modes
+- [←] [→] - change modes
 
 Modes:
 
@@ -28,7 +27,25 @@ Modes:
 - Echo - print contents of note to console
 - Copy - copy contents of note to clipboard
 
+## Filtering Notes
+
+Notes are shown in the bottom section of the JNote window. Filter the available 
+notes simply by typing.
+
+Controls:
+
+- [TAB]
+
+
 ## Enabling Copy Mode
+
+An additional dependency is require to enable "copy" mode:
+
+- Linux - xclip
+- MacOS - pbcopy
+
+
+
 
 ## Git Integration
 
