@@ -7,34 +7,38 @@ pathlib.Path(notes_dir).mkdir(parents=True, exist_ok=True)
 def handle_args():
 
     args = sys.argv[1:]
-    if len(args) > 1 and args[0] == "--set-remote":
 
-        os.system(( # remove origin 'git remote add origin %s'
-            '(cd %s && '
-            '([ -d .git ] || git init) && '
-            'git remote rm origin'
-            ') > /dev/null 2>&1 &'
-        ) % notes_dir)
+    if len(args) > 0 and args[0] == "--show-remote":
 
-        os.system((
-            '(cd %s && '
-            'git remote add origin %s'
-            ') > /dev/null 2>&1 &'
-        ) % (notes_dir, args[1]))
-
-        print("set remote: %s" % args[1])
+        print("remote: " + git_action("show_remote"))
         sys.exit()
 
-    elif len(args) > 0 and args[0] == "--show-remote":
+    elif len(args) > 1 and args[0] == "--init-remote":
 
-        remote_info = subprocess.run(
-            'cd %s && git config --get remote.origin.url' % notes_dir, 
-            shell=True, 
-            stdout=subprocess.PIPE
-        ).stdout.decode('utf-8').strip()
-        
-        if remote_info == "": remote_info = "none"
-        print("remote: " + remote_info)
+        if input("overwrite the contents of the remote repository with local notes [y/N]").lower not in ["y","yes"]:
+
+            print((
+                "if you are trying to synchronize jnote to a repo that already has been initialized\n" 
+                "use: jnote --join-remote [remote url]"
+            ))
+            sys.exit()
+
+        git_action("init_remote", args[1])
+        print("initialized remote: %s" % args[1])
+        sys.exit()
+
+    elif len(args) > 1 and args[0] == "--join-remote":
+
+        if input("overwrite local notes with the contents of the remote repository [y/N]").lower not in ["y","yes"]:
+            
+            print((
+                "if you are trying to initialize a new jnote repository\n" 
+                "use: jnote --join-remote [remote url]"
+            ))
+            sys.exit()
+
+        git_action("join_remote", args[1])
+        print("joined remote: %s" % args[1])
         sys.exit()
 
 def set_window_size():
@@ -57,6 +61,56 @@ def configure_app():
     mode_names = ["edit", "delete", "echo", "copy", "help"]
     copy_command = set_copy_command()
     if copy_command is None: mode_names.pop(3)
+
+def git_action(action, args = []):
+
+    if action == "show_remote":
+        
+        remote_info = subprocess.run(
+            'cd %s && git config --get remote.origin.url' % notes_dir, 
+            shell=True, 
+            stdout=subprocess.PIPE
+        ).stdout.decode('utf-8').strip()
+
+        return "none" if remote_info == "" else remote_info
+
+    elif action == "init_remote":
+
+        git_action("join_remote", args[0])
+        git_action("push")
+
+    elif action == "join_remote":
+        
+        os.system(( 
+            '(cd %s && '
+            '([ -d .git ] || git init) && '
+            'git remote rm origin'
+            ') > /dev/null 2>&1 &'
+        ) % notes_dir)
+
+        os.system((
+            '(cd %s && '
+            'git remote add origin %s'
+            ') > /dev/null 2>&1 &'
+        ) % (notes_dir, args[0]))
+
+    elif action == "pull":
+
+        os.system((
+            '(cd %s && '
+            '([ -d .git ] || git init) && '
+            'git fetch origin && '
+            'git reset --hard origin/master'
+            ') > /dev/null 2>&1 &'
+        ) % notes_dir)
+
+    elif action == "push":
+
+        os.system((
+            '(cd %s && '
+            'git add . && git commit -m "test" && git push --force origin master'
+            ') > /dev/null 2>&1 &'
+        ) % notes_dir)
 
 def draw_window(win, current_mode, query, tab_string, selected, possible_notes):
 
@@ -402,14 +456,9 @@ def start_app(current_mode=0, query="", selected=0):
 
     except: raise
 
-    finally:
-        os.system((
-            '(cd %s && '
-            '([ -d .git ] || git init) && '
-            'git add . && git commit -m "test" && git push origin master'
-            ') > /dev/null 2>&1 &'
-        ) % notes_dir)
+    finally: git_action("push")
 
+git_action("pull")
 handle_args()
 set_window_size()
 configure_app()
