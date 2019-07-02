@@ -49,7 +49,6 @@ def handle_args():
 
         os.system("rm -rf %s && rm -rf %s" % (notes_dir, os.path.dirname(os.path.realpath(__file__))))
 
-
 def set_window_size():
 
     global window_height, window_width
@@ -509,7 +508,6 @@ def start_app(current_mode=0, query="", selected=0, pull_first=False):
 
 handle_args()
 configure_app()
-
 has_remote = True if git_action("show_remote") != "none" else False
 start_app(pull_first=has_remote)
 
