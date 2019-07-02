@@ -10,12 +10,12 @@ def handle_args():
 
     if len(args) > 0 and args[0] == "--show-remote":
 
-        print("remote: " + git_action("show_remote"))
+        print(git_action("show_remote"))
         sys.exit()
 
     elif len(args) > 1 and args[0] == "--init-remote":
 
-        if input("overwrite the contents of the remote repository with local notes [y/N]").lower not in ["y","yes"]:
+        if input("overwrite the contents of the remote repository with local notes [y/N]: ").lower() not in ["y","yes"]:
 
             print((
                 "if you are trying to synchronize jnote to a repo that already has been initialized\n" 
@@ -24,20 +24,20 @@ def handle_args():
             sys.exit()
 
         git_action("init_remote", args[1])
-        print("initialized remote: %s" % args[1])
+        print("initialized remote: %s" % [args[1]])
         sys.exit()
 
     elif len(args) > 1 and args[0] == "--join-remote":
 
-        if input("overwrite local notes with the contents of the remote repository [y/N]").lower not in ["y","yes"]:
+        if input("overwrite local notes with the contents of the remote repository [y/N]: ").lower() not in ["y","yes"]:
             
             print((
                 "if you are trying to initialize a new jnote repository\n" 
-                "use: jnote --join-remote [remote url]"
+                "use: jnote --init-remote [remote url]"
             ))
             sys.exit()
 
-        git_action("join_remote", args[1])
+        git_action("join_remote", [args[1]])
         print("joined remote: %s" % args[1])
         sys.exit()
 
@@ -76,23 +76,28 @@ def git_action(action, args = []):
 
     elif action == "init_remote":
 
-        git_action("join_remote", args[0])
-        git_action("push")
-
-    elif action == "join_remote":
-        
         os.system(( 
             '(cd %s && '
             '([ -d .git ] || git init) && '
             'git remote rm origin'
-            ') > /dev/null 2>&1 &'
+            ') > /dev/null 2>&1'
         ) % notes_dir)
 
         os.system((
             '(cd %s && '
             'git remote add origin %s'
-            ') > /dev/null 2>&1 &'
+            ') > /dev/null 2>&1'
         ) % (notes_dir, args[0]))
+
+        git_action("push")
+
+    elif action == "join_remote":
+        
+        os.system(( 
+            '(rm -rf %s && '
+            'git clone %s %s'
+            ') > /dev/null 2>&1'
+        ) % (notes_dir, args[0], notes_dir))
 
     elif action == "pull":
 
@@ -101,7 +106,7 @@ def git_action(action, args = []):
             '([ -d .git ] || git init) && '
             'git fetch origin && '
             'git reset --hard origin/master'
-            ') > /dev/null 2>&1 &'
+            ') > /dev/null 2>&1'
         ) % notes_dir)
 
     elif action == "push":
@@ -130,6 +135,7 @@ def draw_window(win, current_mode, query, tab_string, selected, possible_notes):
             " [RET] | make selection      ",
             " ctrlC | quit                "
         ]
+
         for i, line in enumerate(help_message):
             win.addstr(i+window_height//2-len(help_message)//2,0,line.center(window_width))
 
@@ -199,15 +205,15 @@ def confirm_delete(win, note_selection):
     def draw_confirm_window():
 
         confirm_message = [
-            " " * (window_width//2),
-            " " * (window_width//2),
-            " " * (window_width//2),
-            ('delete note: "%s"' % note_selection).center(window_width//2),
-            " " * (window_width//2),
-            " " * (window_width//2),
-            " " * (window_width//2),
-            " " * (window_width//2),
-            " " * (window_width//2),
+            "╔" + "═" * (window_width//2-2) + "╗",
+            "║" + " " * (window_width//2-2) + "║",
+            "║" + " " * (window_width//2-2) + "║",
+            "║" + ('delete note: "%s"' % note_selection).center(window_width//2-2) + "║",
+            "║" + " " * (window_width//2-2) + "║",
+            "║" + " " * (window_width//2-2) + "║",
+            "║" + " " * (window_width//2-2) + "║",
+            "║" + " " * (window_width//2-2) + "║",
+            "╚" + "═" * (window_width//2-2) + "╝"
         ]
 
         start_line = window_height//2 - len(confirm_message)//2
@@ -216,12 +222,15 @@ def confirm_delete(win, note_selection):
             win.addstr(start_line+i, window_width//2 - len(confirm_message[i])//2, confirm_message[i], curses.A_STANDOUT)
 
         if confirm:
-            win.addstr(start_line + 6, window_width//2 - window_width//8, "  yes  ")
-            win.addstr(" "*(window_width//4-13) + "  no  ", curses.A_STANDOUT)
+            win.addstr(start_line + 6, window_width//2 - window_width//8, "[", curses.A_STANDOUT)
+            win.addstr(" yes ") 
+            win.addstr("]", curses.A_STANDOUT)
+            win.addstr(" "*(window_width//4-13) + "[ no ]", curses.A_STANDOUT)
         else:
-            win.addstr(start_line + 6, window_width//2 - window_width//8, "  yes  "+" "*(window_width//4-13), curses.A_STANDOUT)
-            win.addstr("  no  ")
-
+            win.addstr(start_line + 6, window_width//2 - window_width//8, "[ yes ]"+" "*(window_width//4-13), curses.A_STANDOUT)
+            win.addstr("[", curses.A_STANDOUT)
+            win.addstr(" no ") 
+            win.addstr("]", curses.A_STANDOUT)
     confirm = False
 
     while True:
@@ -236,18 +245,39 @@ def confirm_delete(win, note_selection):
         elif ch == "\n":
             return confirm
 
+def sync_notification(win):
+
+    sync_message = [
+        "╔" + "═" * (window_width//2-2) + "╗",
+        "║" + " " * (window_width//2-2) + "║",
+        "║" + " " * (window_width//2-2) + "║",
+        "║" + " " * (window_width//2-2) + "║",
+        "║" + 'syncing notes...'.center(window_width//2-2) + "║",
+        "║" + " " * (window_width//2-2) + "║",
+        "║" + " " * (window_width//2-2) + "║",
+        "║" + " " * (window_width//2-2) + "║",
+        "╚" + "═" * (window_width//2-2) + "╝"
+    ]
+
+    start_line = window_height//2 - len(sync_message)//2
+
+    for i, line in enumerate(sync_message):
+        win.addstr(start_line+i, window_width//2 - len(sync_message[i])//2, sync_message[i], curses.A_STANDOUT)
+
+    win.refresh()
+
 def echo_notification(win, note_selection):
 
     echo_message = [
-        " " * (window_width//2),
-        " " * (window_width//2),
-        "printed note to console:".center(window_width//2),
-        " " * (window_width//2),
-        ('"%s"' % note_selection).center(window_width//2),
-        " " * (window_width//2),
-        "(press any key to continue)".center(window_width//2),
-        " " * (window_width//2),
-        " " * (window_width//2)
+        "╔" + "═" * (window_width//2-2) + "╗",
+        "║" + " " * (window_width//2-2) + "║",
+        "║" + "printed note to console:".center(window_width//2-2) + "║",
+        "║" + " " * (window_width//2-2) + "║",
+        "║" + ('"%s"' % note_selection).center(window_width//2-2) + "║",
+        "║" + " " * (window_width//2-2) + "║",
+        "║" + "(press any key to continue)".center(window_width//2-2) + "║",
+        "║" + " " * (window_width//2-2) + "║",
+        "╚" + "═" * (window_width//2-2) + "╝"
     ]
 
     start_line = window_height//2 - len(echo_message)//2
@@ -260,15 +290,15 @@ def echo_notification(win, note_selection):
 def copy_notification(win, note_selection):
 
     copy_message = [
-        " " * (window_width//2),
-        " " * (window_width//2),
-        "copied note to clipboard:".center(window_width//2),
-        " " * (window_width//2),
-        ('"%s"' % note_selection).center(window_width//2),
-        " " * (window_width//2),
-        "(press any key to continue)".center(window_width//2),
-        " " * (window_width//2),
-        " " * (window_width//2)
+        "╔" + "═" * (window_width//2-2) + "╗",
+        "║" + " " * (window_width//2-2) + "║",
+        "║" + "copied note to clipboard:".center(window_width//2-2) + "║",
+        "║" + " " * (window_width//2-2) + "║",
+        "║" + ('"%s"' % note_selection).center(window_width//2-2) + "║",
+        "║" + " " * (window_width//2-2) + "║",
+        "║" + "(press any key to continue)".center(window_width//2-2) + "║",
+        "║" + " " * (window_width//2-2) + "║",
+        "╚" + "═" * (window_width//2-2) + "╝"
     ]
 
     start_line = window_height//2 - len(copy_message)//2
@@ -283,15 +313,19 @@ def filter_notes(list_in, query):
 
     begin_index = 0
     for note in all_notes:
+
         if note.startswith('.'):
             begin_index += 1
+
         else: break
 
     all_notes = all_notes[begin_index:]
 
     possible_notes = []
     not_possible_notes = []
+
     for note in all_notes:
+
         if note.startswith(query):
             possible_notes.append(note)
         else:
@@ -319,11 +353,14 @@ def get_tab_string(list_in):
 
     return tab_string
 
-def main(win, current_mode, query, selected):
+def main(win, current_mode, query, selected, pull_first):
 
     curses.use_default_colors()
     curses.curs_set(False)
     win.keypad(True)
+    win.refresh()
+
+    if pull_first: sync_notification(win); git_action("pull")
 
     notes_dir_contents = os.listdir(notes_dir)
     possible_notes, not_possible_notes = filter_notes(notes_dir_contents, query)
@@ -422,9 +459,9 @@ def main(win, current_mode, query, selected):
 
         else: tab_string = get_tab_string(possible_notes)
 
-def start_app(current_mode=0, query="", selected=0):
+def start_app(current_mode=0, query="", selected=0, pull_first=False):
 
-    try: curses.wrapper(main, current_mode, query, selected)
+    try: curses.wrapper(main, current_mode, query, selected, pull_first)
 
     except KeyboardInterrupt: pass
 
@@ -458,8 +495,9 @@ def start_app(current_mode=0, query="", selected=0):
 
     finally: git_action("push")
 
-git_action("pull")
 handle_args()
 set_window_size()
 configure_app()
-start_app()
+
+has_remote = True if git_action("show_remote") != "none" else False
+start_app(pull_first=has_remote)
