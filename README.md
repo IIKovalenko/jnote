@@ -1,6 +1,10 @@
-# jnote
+# JNote
+
+An elegant notepad application for command line productivity
 
 ## About
+
+JNote is a  
 
 ## Selecting a Note
 

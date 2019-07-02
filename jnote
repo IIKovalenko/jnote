@@ -42,6 +42,7 @@ def handle_args():
         sys.exit()
 
 def set_window_size():
+
     global window_height, window_width
     window_height, window_width = os.popen('stty size', 'r').read().split()
     window_height = int(window_height)
@@ -57,6 +58,7 @@ def configure_app():
         if shutil.which('pbcopy') is not None: return "pbcopy < %s"
         return None
 
+    set_window_size()
     editor = os.getenv('EDITOR', "vi")
     mode_names = ["edit", "delete", "echo", "copy", "help"]
     copy_command = set_copy_command()
@@ -486,6 +488,7 @@ def start_app(current_mode=0, query="", selected=0, pull_first=False):
             start_app(current_mode = end_mode, query = end_query, selected = end_selected)
 
         elif mode_names[end_mode] == "copy":
+            os.system(copy_command % note_path)
             start_app(current_mode = end_mode, query = end_query, selected = end_selected)
             os.system(copy_command % note_path)
 
@@ -496,8 +499,8 @@ def start_app(current_mode=0, query="", selected=0, pull_first=False):
     finally: git_action("push")
 
 handle_args()
-set_window_size()
 configure_app()
 
 has_remote = True if git_action("show_remote") != "none" else False
 start_app(pull_first=has_remote)
+
