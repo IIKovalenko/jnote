@@ -3,7 +3,7 @@
 import os, subprocess, sys, shutil, time, pathlib, curses
 notes_dir = os.path.expanduser("~") + "/.notes/"
 pathlib.Path(notes_dir).mkdir(parents=True, exist_ok=True)
-
+    
 def handle_args():
 
     args = sys.argv[1:]
@@ -40,6 +40,15 @@ def handle_args():
         git_action("join_remote", [args[1]])
         print("joined remote: %s" % args[1])
         sys.exit()
+
+    elif len(args) > 1 and args[0] == "--update":
+
+        os.system(("cd %s && git reset --hard && git pull origin master") % (os.path.dirname(os.path.realpath(__file__))))
+
+    elif len(args) > 1 and args[0] == "--uninstall":
+
+        os.system("rm -rf %s && rm -rf %s" % (notes_dir, os.path.dirname(os.path.realpath(__file__))))
+
 
 def set_window_size():
 
