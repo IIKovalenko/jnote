@@ -11,12 +11,18 @@ versioning and synchronization via git.
 
 ## Dependencies
 
-- python3
-- curses
+- Python 3
+- Python 3 Curses Module
+- Git
 - xclip or pbcopy (optional)
-- git (optional)
 
-## Installation
+## Install
+
+    $ git clone http://github.com/nickmpaz/jnote.git && sudo ln -s $(pwd)/jnote/jnote /usr/local/bin/
+
+## Uninstall
+
+    $ jnote --uninstall && sudo rm /usr/local/bin/jnote
 
 ## Usage
 
@@ -56,9 +62,34 @@ Modes:
 - Echo - print contents of note to console
 - Copy - copy contents of note to clipboard
 
+### Git Integration
+
+- git with ssh, ssh-add already done
+
+#### Versioning Notes
+
+Notes are automatically versioned using Git. To store them in a remote repository
+use the command:
+
+    $ jnote --init-remote [remote url]
+
+This command will "initialize" the remote repository by forcefully pushing your
+local notes.
+
+#### Synchronizing Notes
+
+Once you have "initialized" a remote repository, it may be used to synchronize your
+notes across multiple devices. On another device, install JNote and use the command:
+
+    $ jnote --join-remote [remote url]
+
+This command will overwrite your local notes with the contents of the remote repository.
+Thereafter, any changes made on one of your devices will appear across all of them.
+
 #### Enabling Copy Mode
 
-An additional dependency is require to enable "copy" mode:
+An additional dependency is require to enable "copy" mode. Once either xclip or pbcopy 
+is installed, "copy" mode will automatically be enabled.
 
 Linux (Ubuntu) - xclip:
 
@@ -67,11 +98,3 @@ Linux (Ubuntu) - xclip:
 MacOS - pbcopy:
 
     $ sudo brew install pbcopy
-
-### Git Integration
-
-- git with ssh, ssh-add already done
-#### Versioning Notes
-
-#### Synchronizing Notes
-
