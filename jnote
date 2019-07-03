@@ -23,8 +23,8 @@ def handle_args():
             ))
             sys.exit()
 
-        git_action("init_remote", args[1])
-        print("initialized remote: %s" % [args[1]])
+        git_action("init_remote", [args[1]])
+        print("initialized remote: %s" % args[1])
         sys.exit()
 
     elif len(args) > 1 and args[0] == "--join-remote":
