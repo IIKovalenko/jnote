@@ -41,6 +41,12 @@ def handle_args():
         print("joined remote: %s" % args[1])
         sys.exit()
 
+    if len(args) > 0 and args[0] == "--remove-remote":
+
+        print("removed remote: " + git_action("show_remote"))
+        git_action("remove_remote")
+        sys.exit()
+
     elif len(args) > 1 and args[0] == "--update":
 
         os.system(("cd %s && git reset --hard && git pull origin master") % (os.path.dirname(os.path.realpath(__file__))))
@@ -84,14 +90,18 @@ def git_action(action, args = []):
 
         return "none" if remote_info == "" else remote_info
 
-    elif action == "init_remote":
-
+    if action == "remove_remote":
+        
         os.system(( 
             '(cd %s && '
             '([ -d .git ] || git init) && '
             'git remote rm origin'
             ') > /dev/null 2>&1'
         ) % notes_dir)
+
+    elif action == "init_remote":
+
+        git_action("remove_remote")
 
         os.system((
             '(cd %s && '
@@ -123,7 +133,7 @@ def git_action(action, args = []):
 
         os.system((
             '(cd %s && '
-            'git add . && git commit -m "test" && git push --force origin master'
+            'git add .; git commit -m "test"; git push --force origin master'
             ') > /dev/null 2>&1 &'
         ) % notes_dir)
 
