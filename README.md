@@ -9,7 +9,7 @@ will dictate what happens to a note when it is chosen. The default mode is
 Other modes include "delete", "echo", and "copy". JNote also supports note 
 versioning and synchronization via git.
 
-<img src="https://i.imgur.com/fO8ZKp1.gif" alt="JNote Demo" width="50%">
+<img src="https://i.imgur.com/fO8ZKp1.gif" alt="JNote Demo" width="100%">
 
 
 ## Dependencies
