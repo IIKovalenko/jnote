@@ -3,7 +3,7 @@
 import os, subprocess, sys, shutil, time, pathlib, curses
 notes_dir = os.path.expanduser("~") + "/.notes/"
 pathlib.Path(notes_dir).mkdir(parents=True, exist_ok=True)
-    
+
 def handle_args():
 
     args = sys.argv[1:]
@@ -15,10 +15,10 @@ def handle_args():
 
     elif len(args) > 1 and args[0] == "--init-remote":
 
-        if input("overwrite the contents of the remote repository with local notes [y/N]: ").lower() not in ["y","yes"]:
+        if "y" not in input("overwrite the contents of the remote repository with local notes [y/N]: ").lower():
 
             print((
-                "if you are trying to synchronize jnote to a repo that already has been initialized\n" 
+                "if you are trying to synchronize jnote to a repo that already has been initialized\n"
                 "use: jnote --join-remote [remote url]"
             ))
             sys.exit()
@@ -29,10 +29,10 @@ def handle_args():
 
     elif len(args) > 1 and args[0] == "--join-remote":
 
-        if input("overwrite local notes with the contents of the remote repository [y/N]: ").lower() not in ["y","yes"]:
-            
+        if "y" not in input("overwrite local notes with the contents of the remote repository [y/N]: ").lower():
+
             print((
-                "if you are trying to initialize a new jnote repository\n" 
+                "if you are trying to initialize a new jnote repository\n"
                 "use: jnote --init-remote [remote url]"
             ))
             sys.exit()
@@ -47,13 +47,15 @@ def handle_args():
         git_action("remove_remote")
         sys.exit()
 
-    elif len(args) > 1 and args[0] == "--update":
+    elif len(args) > 0 and args[0] == "--update":
 
         os.system(("cd %s && git reset --hard && git pull origin master") % (os.path.dirname(os.path.realpath(__file__))))
+        sys.exit()
 
-    elif len(args) > 1 and args[0] == "--uninstall":
+    elif len(args) > 0 and args[0] == "--uninstall":
 
-        os.system("rm -rf %s && rm -rf %s" % (notes_dir, os.path.dirname(os.path.realpath(__file__))))
+        os.system("rm -rf %s; rm -rf %s" % (notes_dir, os.path.dirname(os.path.realpath(__file__))))
+        sys.exit()
 
 def set_window_size():
 
@@ -81,18 +83,18 @@ def configure_app():
 def git_action(action, args = []):
 
     if action == "show_remote":
-        
+
         remote_info = subprocess.run(
-            'cd %s && git config --get remote.origin.url' % notes_dir, 
-            shell=True, 
+            'cd %s && git config --get remote.origin.url' % notes_dir,
+            shell=True,
             stdout=subprocess.PIPE
         ).stdout.decode('utf-8').strip()
 
         return "none" if remote_info == "" else remote_info
 
     if action == "remove_remote":
-        
-        os.system(( 
+
+        os.system((
             '(cd %s && '
             '([ -d .git ] || git init) && '
             'git remote rm origin'
@@ -112,8 +114,8 @@ def git_action(action, args = []):
         git_action("push")
 
     elif action == "join_remote":
-        
-        os.system(( 
+
+        os.system((
             '(rm -rf %s && '
             'git clone %s %s'
             ') > /dev/null 2>&1'
@@ -243,13 +245,13 @@ def confirm_delete(win, note_selection):
 
         if confirm:
             win.addstr(start_line + 6, window_width//2 - window_width//8, "[", curses.A_STANDOUT)
-            win.addstr(" yes ") 
+            win.addstr(" yes ")
             win.addstr("]", curses.A_STANDOUT)
             win.addstr(" "*(window_width//4-13) + "[ no ]", curses.A_STANDOUT)
         else:
             win.addstr(start_line + 6, window_width//2 - window_width//8, "[ yes ]"+" "*(window_width//4-13), curses.A_STANDOUT)
             win.addstr("[", curses.A_STANDOUT)
-            win.addstr(" no ") 
+            win.addstr(" no ")
             win.addstr("]", curses.A_STANDOUT)
     confirm = False
 
@@ -329,8 +331,8 @@ def copy_notification(win, note_selection):
     win.getkey()
 
 def filter_notes(list_in, query):
-    all_notes = sorted(list_in)
 
+    all_notes = sorted(list_in)
     begin_index = 0
     for note in all_notes:
 
@@ -520,4 +522,3 @@ handle_args()
 configure_app()
 has_remote = True if git_action("show_remote") != "none" else False
 start_app(pull_first=has_remote)
-
