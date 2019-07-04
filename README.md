@@ -112,3 +112,11 @@ Linux (Ubuntu) - xclip:
 MacOS - pbcopy:
 
     $ sudo brew install pbcopy
+
+### All Commands
+
+jnote
+jnote --init-remote [remote]
+jnote --join-remote [remote]
+jnote --show-remote
+jnote --remove-remote
