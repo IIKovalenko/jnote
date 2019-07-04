@@ -67,7 +67,18 @@ Modes:
 
 ### Git Integration
 
-- git with ssh, ssh-add already done
+Before verisoning and sychronization will work, you must set up a passwordless 
+connection to the remote server that you are using (Github, BitBucket, etc).
+This is generally done by generating an ssh key, assoiciating it to your account 
+and then configuring an authentication agent.
+
+Github:
+
+https://help.github.com/en/articles/connecting-to-github-with-ssh
+
+BitBucket:
+
+https://confluence.atlassian.com/bitbucket/set-up-an-ssh-key-728138079.html
 
 ### Versioning Notes
 
