@@ -60,9 +60,7 @@ def handle_args():
 def set_window_size():
 
     global window_height, window_width
-    window_height, window_width = os.popen('stty size', 'r').read().split()
-    window_height = int(window_height)
-    window_width = int(window_width)
+    window_width, window_height = shutil.get_terminal_size()
 
 def configure_app():
 
@@ -382,7 +380,10 @@ def main(win, current_mode, query, selected, pull_first):
     win.keypad(True)
     win.refresh()
 
-    if pull_first: sync_notification(win); git_action("pull")
+    if pull_first: 
+        
+        sync_notification(win) 
+        git_action("pull")
 
     notes_dir_contents = os.listdir(notes_dir)
     possible_notes, not_possible_notes = filter_notes(notes_dir_contents, query)
