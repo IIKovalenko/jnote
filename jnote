@@ -252,7 +252,7 @@ def notification(win, notification_type, note_selection=""):
 
     def draw_continue():
         draw_popup()
-        win.addstr(start_line + 6, window_width//2 - 5, "[ ", curses.A_STANDOUT)
+        win.addstr(start_line + 6, window_width//2 - 6, "[ ", curses.A_STANDOUT)
         win.addstr("continue")
         win.addstr(" ]", curses.A_STANDOUT)
 
@@ -276,6 +276,7 @@ def notification(win, notification_type, note_selection=""):
     elif notification_type == "sync":
 
         popup[4] = "║" + 'syncing notes...'.center(popup_len) + "║"
+        win.clear()
         draw_popup()
 
     elif notification_type == "echo":
@@ -450,7 +451,10 @@ def start_app(current_mode=0, query="", selected=0, pull_first=False):
 
     try: curses.wrapper(main, current_mode, query, selected, pull_first)
 
-    except KeyboardInterrupt: pass
+    except KeyboardInterrupt: 
+        
+        git_action("push")
+        sys.exit()
 
     except StopIteration as e:
 
@@ -461,18 +465,22 @@ def start_app(current_mode=0, query="", selected=0, pull_first=False):
         note_path = notes_dir + note_selection
 
         if mode_names[end_mode] == "edit":
+
             os.system(editor+ " " + note_path)
             start_app(current_mode = end_mode, query = end_query)
 
         elif mode_names[end_mode] == "delete":
+
             os.system("rm " + note_path + " 2>/dev/null")
             start_app(current_mode = end_mode)
 
         elif mode_names[end_mode] == "echo":
+
             os.system("cat " + note_path + " 2>/dev/null")
             start_app(current_mode = end_mode, query = end_query, selected = end_selected)
 
         elif mode_names[end_mode] == "copy":
+
             os.system(copy_command % note_path)
             start_app(current_mode = end_mode, query = end_query, selected = end_selected)
             os.system(copy_command % note_path)
@@ -480,8 +488,6 @@ def start_app(current_mode=0, query="", selected=0, pull_first=False):
         sys.exit()
 
     except: raise
-
-    finally: git_action("push")
 
 handle_args()
 configure_app()
