@@ -64,19 +64,15 @@ def set_window_size():
 
 def configure_app():
 
-    global editor, mode_names, copy_command, notes_dir
-
-    def set_copy_command():
-
-        if shutil.which('xclip') is not None: return "xclip -selection clipboard %s"
-        if shutil.which('pbcopy') is not None: return "pbcopy < %s"
-        return None
+    global editor, mode_names, copy_command, notes_dir, has_remote
 
     set_window_size()
     editor = os.getenv('EDITOR', "vi")
     mode_names = ["edit", "delete", "echo", "copy", "help"]
-    copy_command = set_copy_command()
-    if copy_command is None: mode_names.pop(3)
+    if shutil.which('xclip') is not None: copy_command = "xclip -selection clipboard %s"
+    elif shutil.which('pbcopy') is not None: copy_command = "pbcopy < %s"
+    else: mode_names.pop(3)
+    has_remote = True if git_action("show_remote") != "none" else False
 
 def git_action(action, args = []):
 
@@ -220,27 +216,29 @@ def draw_window(win, current_mode, query, tab_string, selected, possible_notes):
         draw_body(win, current_mode, query, selected, possible_notes)
         win.refresh()
 
-def confirm_delete(win, note_selection):
+def notification(win, notification_type, note_selection=""):
 
-    def draw_confirm_window():
+    popup_len = window_width//2-2
+    popup = [
+        "╔" + "═" * popup_len + "╗",
+        "║" + " " * popup_len + "║",
+        "║" + " " * popup_len + "║",
+        "║" + " " * popup_len + "║",
+        "║" + " " * popup_len + "║",
+        "║" + " " * popup_len + "║",
+        "║" + " " * popup_len + "║",
+        "║" + " " * popup_len + "║",
+        "╚" + "═" * popup_len + "╝"
+    ]
+    start_line = window_height//2 - len(popup)//2
 
-        confirm_message = [
-            "╔" + "═" * (window_width//2-2) + "╗",
-            "║" + " " * (window_width//2-2) + "║",
-            "║" + " " * (window_width//2-2) + "║",
-            "║" + ('delete note: "%s"' % note_selection).center(window_width//2-2) + "║",
-            "║" + " " * (window_width//2-2) + "║",
-            "║" + " " * (window_width//2-2) + "║",
-            "║" + " " * (window_width//2-2) + "║",
-            "║" + " " * (window_width//2-2) + "║",
-            "╚" + "═" * (window_width//2-2) + "╝"
-        ]
+    def draw_popup():
+        for i, line in enumerate(popup):
+            win.addstr(start_line+i, window_width//2 - len(popup[i])//2, popup[i], curses.A_STANDOUT)
+        win.refresh()
 
-        start_line = window_height//2 - len(confirm_message)//2
-
-        for i, line in enumerate(confirm_message):
-            win.addstr(start_line+i, window_width//2 - len(confirm_message[i])//2, confirm_message[i], curses.A_STANDOUT)
-
+    def draw_confirm(confirm):
+        draw_popup()
         if confirm:
             win.addstr(start_line + 6, window_width//2 - window_width//8, "[", curses.A_STANDOUT)
             win.addstr(" yes ")
@@ -251,82 +249,48 @@ def confirm_delete(win, note_selection):
             win.addstr("[", curses.A_STANDOUT)
             win.addstr(" no ")
             win.addstr("]", curses.A_STANDOUT)
-    confirm = False
 
-    while True:
+    def draw_continue():
+        draw_popup()
+        win.addstr(start_line + 6, window_width//2 - 5, "[ ", curses.A_STANDOUT)
+        win.addstr("continue")
+        win.addstr(" ]", curses.A_STANDOUT)
 
-        draw_confirm_window()
-        ch = win.getkey()
+    if notification_type == "delete":
 
-        if ch == "KEY_LEFT" or ch == "KEY_RIGHT":
-            confirm = not confirm
-            continue
+        popup[3] = "║" + ('delete note: "%s"' % note_selection).center(popup_len) + "║"
+        confirm = False
 
-        elif ch == "\n":
-            return confirm
+        while True:
 
-def sync_notification(win):
+            draw_confirm(confirm)
+            ch = win.getkey()
 
-    sync_message = [
-        "╔" + "═" * (window_width//2-2) + "╗",
-        "║" + " " * (window_width//2-2) + "║",
-        "║" + " " * (window_width//2-2) + "║",
-        "║" + " " * (window_width//2-2) + "║",
-        "║" + 'syncing notes...'.center(window_width//2-2) + "║",
-        "║" + " " * (window_width//2-2) + "║",
-        "║" + " " * (window_width//2-2) + "║",
-        "║" + " " * (window_width//2-2) + "║",
-        "╚" + "═" * (window_width//2-2) + "╝"
-    ]
+            if ch == "KEY_LEFT" or ch == "KEY_RIGHT":
+                confirm = not confirm
+                continue
 
-    start_line = window_height//2 - len(sync_message)//2
+            elif ch == "\n":
+                return confirm
 
-    for i, line in enumerate(sync_message):
-        win.addstr(start_line+i, window_width//2 - len(sync_message[i])//2, sync_message[i], curses.A_STANDOUT)
+    elif notification_type == "sync":
 
-    win.refresh()
+        popup[4] = "║" + 'syncing notes...'.center(popup_len) + "║"
+        draw_popup()
 
-def echo_notification(win, note_selection):
+    elif notification_type == "echo":
+        
+        popup[2] = "║" + "printed note to console:".center(popup_len) + "║"
+        popup[4] = "║" + ('"%s"' % note_selection).center(popup_len) + "║"
+        draw_continue()
+        win.getkey()
 
-    echo_message = [
-        "╔" + "═" * (window_width//2-2) + "╗",
-        "║" + " " * (window_width//2-2) + "║",
-        "║" + "printed note to console:".center(window_width//2-2) + "║",
-        "║" + " " * (window_width//2-2) + "║",
-        "║" + ('"%s"' % note_selection).center(window_width//2-2) + "║",
-        "║" + " " * (window_width//2-2) + "║",
-        "║" + "(press any key to continue)".center(window_width//2-2) + "║",
-        "║" + " " * (window_width//2-2) + "║",
-        "╚" + "═" * (window_width//2-2) + "╝"
-    ]
+    elif notification_type == "copy":
 
-    start_line = window_height//2 - len(echo_message)//2
-
-    for i, line in enumerate(echo_message):
-        win.addstr(start_line+i, window_width//2 - len(echo_message[i])//2, echo_message[i], curses.A_STANDOUT)
-
-    win.getkey()
-
-def copy_notification(win, note_selection):
-
-    copy_message = [
-        "╔" + "═" * (window_width//2-2) + "╗",
-        "║" + " " * (window_width//2-2) + "║",
-        "║" + "copied note to clipboard:".center(window_width//2-2) + "║",
-        "║" + " " * (window_width//2-2) + "║",
-        "║" + ('"%s"' % note_selection).center(window_width//2-2) + "║",
-        "║" + " " * (window_width//2-2) + "║",
-        "║" + "(press any key to continue)".center(window_width//2-2) + "║",
-        "║" + " " * (window_width//2-2) + "║",
-        "╚" + "═" * (window_width//2-2) + "╝"
-    ]
-
-    start_line = window_height//2 - len(copy_message)//2
-
-    for i, line in enumerate(copy_message):
-        win.addstr(start_line+i, window_width//2 - len(copy_message[i])//2, copy_message[i], curses.A_STANDOUT)
-
-    win.getkey()
+        popup[2] = "║" + "copied note to clipboard:".center(popup_len) + "║"
+        popup[4] = "║" + ('"%s"' % note_selection).center(popup_len) + "║"
+        draw_continue()
+        win.getkey()
 
 def filter_notes(list_in, query):
 
@@ -382,7 +346,7 @@ def main(win, current_mode, query, selected, pull_first):
 
     if pull_first: 
         
-        sync_notification(win) 
+        notification(win, "sync")
         git_action("pull")
 
     notes_dir_contents = os.listdir(notes_dir)
@@ -444,13 +408,13 @@ def main(win, current_mode, query, selected, pull_first):
             else: note_selection = possible_notes[selected]
 
             if mode_names[current_mode] == "delete":
-                if not confirm_delete(win, note_selection): continue
+                if not notification(win, "delete", note_selection): continue
 
             elif mode_names[current_mode] == "echo":
-                echo_notification(win, note_selection)
+                notification(win, "echo", note_selection)
 
             elif mode_names[current_mode] == "copy":
-                copy_notification(win, note_selection)
+                notification(win, "copy", note_selection)
 
             raise StopIteration(current_mode, note_selection, query, selected)
 
@@ -521,5 +485,4 @@ def start_app(current_mode=0, query="", selected=0, pull_first=False):
 
 handle_args()
 configure_app()
-has_remote = True if git_action("show_remote") != "none" else False
 start_app(pull_first=has_remote)
