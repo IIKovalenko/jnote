@@ -348,9 +348,9 @@ def main(win, current_mode, query, selected, pull_first):
     if pull_first: 
             
         notification(win, "sync")
-        git_action("pull")
         while subprocess.run(['pgrep', '-fa', 'git-receive-pack'], stdout=subprocess.PIPE).stdout.decode('utf-8') != "":
             time.sleep(1)
+        git_action("pull")
 
     notes_dir_contents = os.listdir(notes_dir)
     possible_notes, not_possible_notes = filter_notes(notes_dir_contents, query)
